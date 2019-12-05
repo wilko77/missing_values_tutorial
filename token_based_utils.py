@@ -5,7 +5,7 @@ from itertools import repeat
 from functools import reduce
 
 from anonlink.similarities._utils import sort_similarities_inplace
-from clkhash.comparators import NgramComparison, NonComparison
+from clkhash.comparators import NonComparison
 
 
 def tokenize_entities(filename, schema):
@@ -26,7 +26,7 @@ def tokenize_entities(filename, schema):
         return entity_tokens
 
 
-def dice_per_feature(toks_a, counts_a, toks_b, counts_b):
+def dice_per_feature(toks_a, counts_a, toks_b, counts_b, sum_of_sims=False):
     """compute the dice coefficient on a per-feature basis.
     toks_x are lists of sets of token, counts_x are list of the corresponding set counts.
     """
@@ -37,13 +37,16 @@ def dice_per_feature(toks_a, counts_a, toks_b, counts_b):
             sim += 2 * len(tok_a.intersection(tok_b)) / (count_a + count_b)
             f_count += 1
     if f_count > 0:
-        num = len(counts_a) - f_count
-        return (0.95 ** num) * sim / f_count
+        if sum_of_sims:
+            return sim
+        else:
+            num = len(counts_a) - f_count
+            return (0.95 ** num) * sim / f_count
     else:
         return 0
 
 
-def sim_fun(per_feature, datasets, threshold, k=None):
+def sim_fun(per_feature, sum_of_sims, datasets, threshold, k=None):
     n_datasets = len(datasets)
     if n_datasets < 2:
         raise ValueError(f'not enough datasets (expected 2, got {n_datasets})')
@@ -74,7 +77,7 @@ def sim_fun(per_feature, datasets, threshold, k=None):
             f0_count = len(f0)
         if f0_count:
             if per_feature:
-                coeffs = (dice_per_feature(f0, f0_count, f1, f1_count) for f1, f1_count in zip(filters1, f1_counts))
+                coeffs = (dice_per_feature(f0, f0_count, f1, f1_count, sum_of_sims=sum_of_sims) for f1, f1_count in zip(filters1, f1_counts))
             else:
                 coeffs = (
                     2 * len(f0.intersection(f1)) / (f0_count + f1_count)
